@@ -21,6 +21,7 @@ const loadConfig = () => {
   }
 };
 const CONFIG = loadConfig();
+const SCAN_LIMIT = 15; // Max 15 chat saja
 
 const EDITOR_SELECTOR = [
   'div.public-DraftEditor-content[contenteditable="true"]',
@@ -162,7 +163,7 @@ const main = async () => {
       }
     } else {
       // Auto mode (scan streak)
-      for (let i = 0; i < CONFIG.totalUsers; i++) {
+      for (let i = 0; i < Math.min(SCAN_LIMIT, CONFIG.totalUsers); i++) {
         try {
           const sel = `div[data-index="${i}"] [data-e2e="dm-new-conversation-item"]`;
           await frame.waitForSelector(sel, { timeout: 5000 });
