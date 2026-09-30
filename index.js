@@ -12,6 +12,8 @@ const SCAN_ONLY = !!process.env.SCAN_ONLY;
 const CREDENTIALS_FILE = path.join(__dirname, "cookies.json");
 const CONFIG_FILE = path.join(__dirname, "config.json");
 
+// Scan mode: ambil 15 chat teratas dari list DM (bukan dari targetUsernames)
+
 const loadConfig = () => {
   if (!fs.existsSync(CONFIG_FILE)) throw new Error("config.json tidak ditemukan");
   try {
@@ -134,7 +136,26 @@ const main = async () => {
     // ponytail: deteksi via teks/emoji "🔥"/"streak" di item. Upgrade: dump HTML sekali -> pakai selector asli (class/icon) kalau emoji tidak muncul di DOM.
     let targets = [];
     
-    if (CONFIG.targetUsernames && CONFIG.targetUsernames.length > 0) {
+    if (SCAN_ONLY) {
+      // Mode scan: ambil 15 chat teratas yang ada di DM list
+      console.log(cyan(`\\n[+] Mode Scan Only: mengambil ${SCAN_LIMIT} chat teratas...`));
+      for (let i = 0; i < Math.min(SCAN_LIMIT, CONFIG.totalUsers); i++) {
+        try {
+          const sel = `div[data-index="${i}"] [data-e2e="dm-new-conversation-item"]`;
+          await frame.waitForSelector(sel, { timeout: 3000 });
+          const info = await frame.evaluate((s) => {
+            const el = document.querySelector(s);
+            if (!el) return null;
+            const nick = document.querySelector(`div[data-index="${el.closest("[data-index]")?.dataset.index}"] [data-e2e="dm-new-conversation-nickname"]`)?.textContent || "";
+            return { nick };
+          }, sel);
+          if (!info || !info.nick) continue;
+          
+          targets.push({ i, nick: info.nick, hasStreak: true });
+          console.log(green(`  ~ Found: ${info.nick}`));
+        } catch {}
+      }
+    } else if (CONFIG.targetUsernames && CONFIG.targetUsernames.length > 0) {
       console.log(cyan(`\n[+] Mode manual: hanya kirim ke ${CONFIG.targetUsernames.length} user spesifik.`));
       for (let i = 0; i < CONFIG.totalUsers; i++) {
         try {
@@ -253,27 +274,13 @@ const main = async () => {
         if (isDebug) console.log(green("  [~] Chatbox ready, editor ditemukan!"));
 
         if (SCAN_ONLY) {
-          // Ambil last message dan timestamp (WIB)
-          const chatInfo = await frame.evaluate(() => {
-            const cb = document.querySelector('[data-e2e="dm-new-chatbox"]');
-            if (!cb) return { last_msg: "", time: "" };
-            // Ambil last message dari chat bubbles
-            const msgs = cb.querySelectorAll('[data-e2e="message-text"], [class*="message"], [class*="bubble"]');
-            let last_msg = "";
-            if (msgs.length > 0) {
-              last_msg = msgs[msgs.length - 1].textContent.trim();
-            }
-            // Timestamp dari element waktu
-            const timeEl = cb.querySelector('[data-e2e="message-time"], [class*="time"], time');
-            const time = timeEl ? timeEl.textContent.trim() : new Date().toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' });
-            return { last_msg: last_msg.substring(0, 100), time };
-          });
+          // Scan only: tidak kirim pesan, hanya log user
           console.log(JSON.stringify({
             user: username || `unknown_${i}`,
-            time: chatInfo.time
+            status: "scanned"
           }));
           success++;
-          continue; // Skip send
+          continue; // Skip send logic
         }
 
         // Klik editor
