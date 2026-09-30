@@ -45,8 +45,17 @@ const main = async () => {
   const banner = figlet.textSync("TikTok Streak", { font: CONFIG.bannerFont, horizontalLayout: "default", verticalLayout: "default" });
   console.log(bold(cyan(banner)));
   console.log(yellow("\n[+] Made with 🚬 and ☕ by Saturia."));
-  if (CONFIG.useQuotesAPi) console.log(blue("[+] Message: Random quote (dummyjson.com)"));
-  else console.log(blue("[+] Message:", CONFIG.message));
+  
+  // Override message jika ada CUSTOM_MESSAGE dari workflow input
+  let messageToSend = CONFIG.message;
+  if (process.env.CUSTOM_MESSAGE && process.env.CUSTOM_MESSAGE.trim()) {
+    messageToSend = process.env.CUSTOM_MESSAGE.trim();
+    console.log(blue("[+] Message: CUSTOM (dari Telegram bot)"));
+  } else if (CONFIG.useQuotesAPi) {
+    console.log(blue("[+] Message: Random quote (dummyjson.com)"));
+  } else {
+    console.log(blue("[+] Message:", CONFIG.message));
+  }
   console.log(yellow(`[+] Mode: ${isDebug ? "Debug" : "Normal"}\n`));
 
   let credentials;
@@ -250,8 +259,10 @@ const main = async () => {
         });
         await sleep(CONFIG.afterClickDelayMs);
 
-        let message = CONFIG.message;
-        if (CONFIG.useQuotesAPi) {
+        let message = messageToSend;
+        if (process.env.CUSTOM_MESSAGE && process.env.CUSTOM_MESSAGE.trim()) {
+          message = process.env.CUSTOM_MESSAGE.trim();
+        } else if (CONFIG.useQuotesAPi) {
           const quote = await fetchQuote();
           if (!quote) throw new Error("Gagal fetch quote");
           message = quote;

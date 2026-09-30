@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: "0 17 * * *"   # 00:00 WIB (UTC+7)
   workflow_dispatch:
+    inputs:
+      custom_message:
+        description: 'Custom message (kosongkan = pakai default)'
+        required: false
+        type: string
 
 jobs:
   streak:
@@ -27,6 +32,7 @@ jobs:
       - name: Run TikTok Streak
         env:
           COOKIES_JSON: ${{ secrets.COOKIES_JSON }}
+          CUSTOM_MESSAGE: ${{ github.event.inputs.custom_message }}
         run: node index.js --debug 2>&1 | tee streak-output.log
 
       - name: Upload debug HTML
