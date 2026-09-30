@@ -1,11 +1,10 @@
-const puppeteer = require("puppeteer");
+const { chromium } = require("playwright");
 const fs = require("fs");
 const path = require("path");
 const figlet = require("figlet");
 const moment = require("moment-timezone");
 moment.tz.setDefault("Asia/Jakarta");
 const { bold, red, yellow, blue, magenta, cyan, green } = require("kleur/colors");
-
 
 
 const args = process.argv.slice(2);
@@ -22,7 +21,7 @@ const loadConfig = () => {
   }
 };
 const CONFIG = loadConfig();
-const BROWSER_CONFIG = { args: ["--no-sandbox", "--disable-setuid-sandbox"], headless: CONFIG.headless };
+
 const fetchQuote = async () => {
   try {
     const res = await fetch("https://dummyjson.com/quotes/random");
@@ -34,7 +33,6 @@ const fetchQuote = async () => {
 };
 
 
-
 const main = async () => {
   const banner = figlet.textSync("TikTok Streak", { font: CONFIG.bannerFont, horizontalLayout: "default", verticalLayout: "default" });
   console.clear();
@@ -44,7 +42,6 @@ const main = async () => {
   else console.log(blue("[+] Message:", CONFIG.message));
   console.log(magenta("[+] Delay:", `${CONFIG.actionDelayMs} ms\n`));
   console.log(yellow(`[+] Mode: ${isDebug ? "Debug" : "Normal"}\n`));
-
 
 
   let credentials;
@@ -69,58 +66,46 @@ const main = async () => {
   }
 
 
-
   let browser;
   try {
-    browser = await puppeteer.launch(BROWSER_CONFIG);
-    const page = await browser.newPage();
-    await page.setViewport({ width: 1280, height: 800 });
-    await page.setCookie(...credentials.cookies);
+    browser = await chromium.launch({
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      headless: CONFIG.headless,
+    });
+    const context = await browser.newContext({
+      viewport: { width: 1280, height: 800 },
+    });
+    await context.addCookies(credentials.cookies);
+    const page = await context.newPage();
     if (isDebug) console.log(yellow("[+] Membuka halaman TikTok messages..."));
-    await page.goto(CONFIG.targetUrl, { waitUntil: "networkidle2", timeout: 60000 });
+    await page.goto(CONFIG.targetUrl, { waitUntil: "networkidle", timeout: 60000 });
     if (isDebug) console.log(yellow("[+] Halaman loaded, tunggu UI siap..."));
-    await new Promise((r) => setTimeout(r, CONFIG.pageLoadDelayMs));
-
+    await page.waitForTimeout(CONFIG.pageLoadDelayMs);
 
 
     let success = 0,
     failed = 0;
-    const iframe = await page.$("iframe[src*='/messages?allow_label=true&lang=en&scene=business']");
-    if (!iframe) return;
-    const frame = await iframe.contentFrame();
-    if (!frame) return;
+    const iframe = page.frameLocator("iframe[src*='/messages?allow_label=true&lang=en&scene=business']");
     try {
-      await frame.waitForSelector("._TUXModal-wrapper", { visible: true, timeout: 3000});
-      await frame.evaluate(() => {
-        const modal = document.querySelector("._TUXModal-wrapper");
-        if (!modal) return;
-        const rect = modal.getBoundingClientRect();
-        const x = Math.max(1, rect.left - 10);
-        const y = Math.max(1, rect.top - 10);
-        document.elementFromPoint(x, y)?.click();
-      });
+      await iframe.locator("._TUXModal-wrapper").waitFor({ state: "visible", timeout: 3000 });
+      await iframe.locator("._TUXModal-wrapper").click({ position: { x: 1, y: 1 } });
     } catch (e) {
     }
-
 
 
     for (let i = 0; i < CONFIG.totalUsers; i++) {
       try {
         const userSelector = `div[data-index="${i}"] [data-e2e="dm-new-conversation-item"]`;
-        await frame.waitForSelector(userSelector, { timeout: 3000 });
-        await frame.click(userSelector);
+        await iframe.locator(userSelector).waitFor({ timeout: 3000 });
+        await iframe.locator(userSelector).click();
         const nicknameSelector = `div[data-index="${i}"] [data-e2e="dm-new-conversation-nickname"]`;
-        const username = await frame.evaluate((sel) => {
-          return document.querySelector(sel)?.textContent || `user${i}`;
-        }, nicknameSelector);
+        const username = await iframe.locator(nicknameSelector).textContent();
         console.log(yellow(`\n[${i + 1}/${CONFIG.totalUsers}] Mengirim pesan ke: ${username}`));
-        await new Promise((r) => setTimeout(r, 500));
+        await page.waitForTimeout(500);
         if (isDebug) console.log(yellow("  [~] Mencari editor..."));
-        await frame.waitForSelector("div.notranslate.public-DraftEditor-content", { timeout: 3000 });
-        const editor = await frame.$("div.notranslate.public-DraftEditor-content");
-        if (!editor) throw new Error("Editor not found");
-        await editor.click();
-        await new Promise((r) => setTimeout(r, CONFIG.afterClickDelayMs));
+        await iframe.locator('[contenteditable="true"], div.notranslate.public-DraftEditor-content').waitFor({ timeout: 3000 });
+        await iframe.locator('[contenteditable="true"], div.notranslate.public-DraftEditor-content').click();
+        await page.waitForTimeout(CONFIG.afterClickDelayMs);
         let message = CONFIG.message;
         if (CONFIG.useQuotesAPi) {
           const quote = await fetchQuote();
@@ -129,12 +114,12 @@ const main = async () => {
           if (isDebug) console.log(cyan(`  [~] Quote: ${quote}`));
         }
         await page.keyboard.type(message, { delay: CONFIG.typeDelayMs });
-        await new Promise((r) => setTimeout(r, CONFIG.afterSendDelayMs));
+        await page.waitForTimeout(CONFIG.afterSendDelayMs);
         if (isDebug) console.log(blue("  [~] Mengirim dengan Ctrl+Enter..."));
         await page.keyboard.down("Control");
         await page.keyboard.press("Enter");
         await page.keyboard.up("Control");
-        await new Promise((r) => setTimeout(r, CONFIG.afterSendDelayMs));
+        await page.waitForTimeout(CONFIG.afterSendDelayMs);
         console.log(green(`  [✓] Terkirim!`));
         success++;
       } catch (e) {
@@ -143,19 +128,17 @@ const main = async () => {
       }
 
 
-
       if (i < CONFIG.totalUsers - 1) {
         if (isDebug) console.log(yellow(`  [~] Tunggu ${CONFIG.actionDelayMs} ms...`));
-        await new Promise((r) => setTimeout(r, CONFIG.actionDelayMs));
+        await page.waitForTimeout(CONFIG.actionDelayMs);
       }
     }
-
 
 
     console.log(green(`\n[+] SELESAI!`));
     console.log(blue(`[+] Success: ${success}`));
     console.log(red(`[+] Failed: ${failed}\n`));
-    await new Promise((r) => setTimeout(r, CONFIG.finishDelayMs));
+    await page.waitForTimeout(CONFIG.finishDelayMs);
   } catch (e) {
     if (isDebug) console.error(red("[!] Fatal error:", e.message));
     process.exit(1);
@@ -163,7 +146,6 @@ const main = async () => {
     if (browser) await browser.close();
   }
 };
-
 
 
 main();
