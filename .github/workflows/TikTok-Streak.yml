@@ -28,14 +28,16 @@ jobs:
       - name: Run TikTok Streak
         env:
           COOKIES_JSON: ${{ secrets.COOKIES_JSON }}
-        run: node index.js --debug
+        run: node index.js --debug 2>&1 | tee streak-output.log
 
       - name: Upload debug HTML
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: debug-html
-          path: debug-*.html
+          path: |
+            debug-*.html
+            streak-output.log
           if-no-files-found: ignore
 
       - name: Discord Notification
