@@ -121,27 +121,60 @@ const main = async () => {
     // Scan semua conversation: tandai mana yang sudah punya streak (api 🔥)
     // ponytail: deteksi via teks/emoji "🔥"/"streak" di item. Upgrade: dump HTML sekali -> pakai selector asli (class/icon) kalau emoji tidak muncul di DOM.
     let targets = [];
-    for (let i = 0; i < CONFIG.totalUsers; i++) {
-      try {
-        const sel = `div[data-index="${i}"] [data-e2e="dm-new-conversation-item"]`;
-        await frame.waitForSelector(sel, { timeout: 5000 });
-        const info = await frame.evaluate((s) => {
-          const el = document.querySelector(s);
-          if (!el) return null;
-          const html = (el.closest("[data-index]")?.innerHTML) || el.innerHTML;
-          const nick = document.querySelector(`div[data-index="${el.closest("[data-index]")?.dataset.index}"] [data-e2e="dm-new-conversation-nickname"]`)?.textContent || "";
-          return { html, nick };
-        }, sel);
-        if (!info) continue;
-        const hasStreak = /\ud83d\udd25|streak/i.test(info.html);
-        targets.push({ i, nick: info.nick, hasStreak });
-        if (isDebug) console.log(yellow(`  [~] #${i} ${info.nick}: ${hasStreak ? "STREAK ada" : "tanpa streak"}`));
-        if (!fs.existsSync("debug-conversations.html")) fs.writeFileSync("debug-conversations.html", await frame.content());
-      } catch {}
-      await sleep(CONFIG.actionDelayMs);
+    
+    if (CONFIG.targetUsernames && CONFIG.targetUsernames.length > 0) {
+      console.log(cyan(`\n[+] Mode manual: hanya kirim ke ${CONFIG.targetUsernames.length} user spesifik.`));
+      for (let i = 0; i < CONFIG.totalUsers; i++) {
+        try {
+          const sel = `div[data-index="${i}"] [data-e2e="dm-new-conversation-item"]`;
+          await frame.waitForSelector(sel, { timeout: 5000 });
+          const info = await frame.evaluate((s) => {
+            const el = document.querySelector(s);
+            if (!el) return null;
+            const nick = document.querySelector(`div[data-index="${el.closest("[data-index]")?.dataset.index}"] [data-e2e="dm-new-conversation-nickname"]`)?.textContent || "";
+            return { nick };
+          }, sel);
+          if (!info) continue;
+          
+          if (CONFIG.targetUsernames.some(name => info.nick.includes(name))) {
+            targets.push({ i, nick: info.nick, hasStreak: true }); // Force true karena manual list
+            console.log(green(`  ~ Found target: ${info.nick}`));
+          }
+        } catch {}
+      }
+      if (targets.length === 0) {
+        console.log(red("[!] Tidak ada user dari list manual yang ditemukan di chat. Cek nama/pengejaan."));
+        const dump = `debug-conversations.html`;
+        fs.writeFileSync(dump, await frame.content());
+        console.log(yellow(`HTML disimpan: ${dump}`));
+        await browser.close();
+        return;
+      }
+    } else {
+      // Auto mode (scan streak)
+      for (let i = 0; i < CONFIG.totalUsers; i++) {
+        try {
+          const sel = `div[data-index="${i}"] [data-e2e="dm-new-conversation-item"]`;
+          await frame.waitForSelector(sel, { timeout: 5000 });
+          const info = await frame.evaluate((s) => {
+            const el = document.querySelector(s);
+            if (!el) return null;
+            const html = (el.closest("[data-index]")?.innerHTML) || el.innerHTML;
+            const nick = document.querySelector(`div[data-index="${el.closest("[data-index]")?.dataset.index}"] [data-e2e="dm-new-conversation-nickname"]`)?.textContent || "";
+            return { html, nick };
+          }, sel);
+          if (!info) continue;
+          const hasStreak = /\ud83d\udd25|streak/i.test(info.html);
+          targets.push({ i, nick: info.nick, hasStreak });
+          if (isDebug) console.log(yellow(`  [~] #${i} ${info.nick}: ${hasStreak ? "STREAK ada" : "tanpa streak"}`));
+          if (!fs.existsSync("debug-conversations.html")) fs.writeFileSync("debug-conversations.html", await frame.content());
+        } catch {}
+        await sleep(CONFIG.actionDelayMs);
+      }
+      if (CONFIG.onlyWithStreak) targets = targets.filter(t => t.hasStreak);
+      console.log(blue(`\n[+] Target setelah filter: ${targets.length}/${CONFIG.totalUsers}`));
     }
-    if (CONFIG.onlyWithStreak) targets = targets.filter(t => t.hasStreak);
-    console.log(blue(`\n[+] Target setelah filter: ${targets.length}/${CONFIG.totalUsers}`));
+    
     if (CONFIG.dryRun) {
       console.log(cyan("\n[DRY RUN] Mode test — tidak ada pesan terkirim.\n"));
       targets.forEach((t, idx) => console.log(green(`  ${idx + 1}. ${t.nick}`)));
@@ -150,7 +183,7 @@ const main = async () => {
       return;
     }
     if (targets.length === 0) {
-      console.log(yellow("[!] Tidak ada chat dengan streak. Cek debug-conversations.html untuk lihat penanda streak asli."));
+      console.log(yellow("[!] Tidak ada chat target. Cek debug-conversations.html."));
       await browser.close();
       return;
     }
