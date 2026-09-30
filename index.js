@@ -137,6 +137,13 @@ const main = async () => {
     }
     if (CONFIG.onlyWithStreak) targets = targets.filter(t => t.hasStreak);
     console.log(blue(`\n[+] Target setelah filter: ${targets.length}/${CONFIG.totalUsers}`));
+    if (CONFIG.dryRun) {
+      console.log(cyan("\n[DRY RUN] Mode test — tidak ada pesan terkirim.\n"));
+      targets.forEach((t, idx) => console.log(green(`  ${idx + 1}. ${t.nick}`)));
+      console.log(yellow("\nUbah dryRun: false di config.json untuk kirim pesan.\n"));
+      await browser.close();
+      return;
+    }
     if (targets.length === 0) {
       console.log(yellow("[!] Tidak ada chat dengan streak. Cek debug-conversations.html untuk lihat penanda streak asli."));
       await browser.close();

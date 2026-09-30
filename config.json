@@ -3,6 +3,7 @@
   "useQuotesAPi": true,
   "totalUsers": 14,
   "onlyWithStreak": true,
+  "dryRun": true,
   "actionDelayMs": 300,
   "typeDelayMs": 0,
   "afterSendDelayMs": 500,
