@@ -4,7 +4,15 @@
   "totalUsers": 14,
   "onlyWithStreak": false,
   "dryRun": false,
-  "targetUsernames": ["denyi", "*___*", "gldnslw", "apaini", "PRETDUT", "pencuri keperawanan"],
+  "targetUsernames": [
+    "denyi",
+    "*___*",
+    "gldnslw",
+    "apaini",
+    "PRETDUT",
+    "pencuri keperawanan",
+    "atha"
+  ],
   "actionDelayMs": 200,
   "typeDelayMs": 0,
   "afterSendDelayMs": 500,

@@ -38,7 +38,7 @@ jobs:
         env:
           COOKIES_JSON: ${{ secrets.COOKIES_JSON }}
           CUSTOM_MESSAGE: ${{ github.event.inputs.custom_message }}
-          SCAN_ONLY: ${{ github.event.inputs.scan_only }}
+          SCAN_ONLY: ${{ github.event.inputs.scan_only == 'true' && 'true' || '' }}
         run: node index.js --debug 2>&1 | tee streak-output.log
 
       - name: Upload debug HTML

@@ -280,10 +280,10 @@ const main = async () => {
             status: "scanned"
           }));
           success++;
-          continue; // Skip send logic
+          continue; // Skip send logic, langsung ke user berikutnya
         }
 
-        // Klik editor
+        // Klik editor untuk mode kirim pesan
         await frame.evaluate(() => {
           const cb = document.querySelector('[data-e2e="dm-new-chatbox"]');
           const ed = cb.querySelector('[contenteditable="true"]') ||
