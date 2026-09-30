@@ -113,8 +113,39 @@ const main = async () => {
       });
     } catch {}
 
-    let success = 0, failed = 0, editorFound = false;
+    // Scan semua conversation: tandai mana yang sudah punya streak (api 🔥)
+    // ponytail: deteksi via teks/emoji "🔥"/"streak" di item. Upgrade: dump HTML sekali -> pakai selector asli (class/icon) kalau emoji tidak muncul di DOM.
+    let targets = [];
     for (let i = 0; i < CONFIG.totalUsers; i++) {
+      try {
+        const sel = `div[data-index="${i}"] [data-e2e="dm-new-conversation-item"]`;
+        await frame.waitForSelector(sel, { timeout: 5000 });
+        const info = await frame.evaluate((s) => {
+          const el = document.querySelector(s);
+          if (!el) return null;
+          const html = (el.closest("[data-index]")?.innerHTML) || el.innerHTML;
+          const nick = document.querySelector(`div[data-index="${el.closest("[data-index]")?.dataset.index}"] [data-e2e="dm-new-conversation-nickname"]`)?.textContent || "";
+          return { html, nick };
+        }, sel);
+        if (!info) continue;
+        const hasStreak = /\ud83d\udd25|streak/i.test(info.html);
+        targets.push({ i, nick: info.nick, hasStreak });
+        if (isDebug) console.log(yellow(`  [~] #${i} ${info.nick}: ${hasStreak ? "STREAK ada" : "tanpa streak"}`));
+        if (!fs.existsSync("debug-conversations.html")) fs.writeFileSync("debug-conversations.html", await frame.content());
+      } catch {}
+      await sleep(CONFIG.actionDelayMs);
+    }
+    if (CONFIG.onlyWithStreak) targets = targets.filter(t => t.hasStreak);
+    console.log(blue(`\n[+] Target setelah filter: ${targets.length}/${CONFIG.totalUsers}`));
+    if (targets.length === 0) {
+      console.log(yellow("[!] Tidak ada chat dengan streak. Cek debug-conversations.html untuk lihat penanda streak asli."));
+      await browser.close();
+      return;
+    }
+
+    let success = 0, failed = 0, editorFound = false;
+    for (let t = 0; t < targets.length; t++) {
+      const i = targets[t].i;
       try {
         const userSelector = `div[data-index="${i}"] [data-e2e="dm-new-conversation-item"]`;
         await frame.waitForSelector(userSelector, { timeout: 5000 });
@@ -122,7 +153,7 @@ const main = async () => {
         const username = await frame
           .evaluate((sel) => document.querySelector(sel)?.textContent || `user${i}`,
             `div[data-index="${i}"] [data-e2e="dm-new-conversation-nickname"]`);
-        console.log(yellow(`\n[${i + 1}/${CONFIG.totalUsers}] -> ${username}`));
+        console.log(yellow(`\n[${t + 1}/${targets.length}] -> ${username}`));
 
         await frame.waitForSelector(EDITOR_SELECTOR, { visible: true, timeout: 15000 });
         editorFound = true;
@@ -156,7 +187,7 @@ const main = async () => {
           break;
         }
       }
-      if (i < CONFIG.totalUsers - 1) await sleep(CONFIG.actionDelayMs);
+      if (t < targets.length - 1) await sleep(CONFIG.actionDelayMs);
     }
 
     console.log(green("\n[+] SELESAI!"));

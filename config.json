@@ -2,6 +2,7 @@
   "message": "API",
   "useQuotesAPi": true,
   "totalUsers": 14,
+  "onlyWithStreak": true,
   "actionDelayMs": 300,
   "typeDelayMs": 0,
   "afterSendDelayMs": 500,
