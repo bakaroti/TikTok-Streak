@@ -9,6 +9,11 @@ on:
         description: 'Custom message (kosongkan = pakai default)'
         required: false
         type: string
+      scan_only:
+        description: 'Scan only (tanpa kirim pesan)'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   streak:
@@ -33,6 +38,7 @@ jobs:
         env:
           COOKIES_JSON: ${{ secrets.COOKIES_JSON }}
           CUSTOM_MESSAGE: ${{ github.event.inputs.custom_message }}
+          SCAN_ONLY: ${{ github.event.inputs.scan_only }}
         run: node index.js --debug 2>&1 | tee streak-output.log
 
       - name: Upload debug HTML

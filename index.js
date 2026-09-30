@@ -8,6 +8,7 @@ const { bold, red, yellow, blue, magenta, cyan, green } = require("kleur/colors"
 
 const args = process.argv.slice(2);
 const isDebug = args.includes("--debug");
+const SCAN_ONLY = !!process.env.SCAN_ONLY;
 const CREDENTIALS_FILE = path.join(__dirname, "cookies.json");
 const CONFIG_FILE = path.join(__dirname, "config.json");
 
@@ -56,7 +57,7 @@ const main = async () => {
   } else {
     console.log(blue("[+] Message:", CONFIG.message));
   }
-  console.log(yellow(`[+] Mode: ${isDebug ? "Debug" : "Normal"}\n`));
+  console.log(yellow(`[+] Mode: ${isDebug ? "Debug" : "Normal"} ${SCAN_ONLY ? "(Scan Only)" : ""}\n`));
 
   let credentials;
   if (process.env.COOKIES_JSON) {
@@ -248,7 +249,32 @@ const main = async () => {
         }
         
         if (isDebug) console.log(green("  [~] Chatbox ready, editor ditemukan!"));
-        
+
+        if (SCAN_ONLY) {
+          // Ambil last message dan timestamp
+          const chatInfo = await frame.evaluate(() => {
+            const cb = document.querySelector('[data-e2e="dm-new-chatbox"]');
+            if (!cb) return { last_msg: "", time: "" };
+            // Ambil last message dari chat bubbles
+            const msgs = cb.querySelectorAll('[data-e2e="message-text"], [class*="message"], [class*="bubble"]');
+            let last_msg = "";
+            if (msgs.length > 0) {
+              last_msg = msgs[msgs.length - 1].textContent.trim();
+            }
+            // Timestamp dari element waktu
+            const timeEl = cb.querySelector('[data-e2e="message-time"], [class*="time"], time');
+            const time = timeEl ? timeEl.textContent.trim() : new Date().toLocaleTimeString();
+            return { last_msg: last_msg.substring(0, 100), time };
+          });
+          console.log(JSON.stringify({
+            user: username || `unknown_${i}`,
+            last_msg: chatInfo.last_msg,
+            time: chatInfo.time
+          }));
+          success++;
+          continue; // Skip send
+        }
+
         // Klik editor
         await frame.evaluate(() => {
           const cb = document.querySelector('[data-e2e="dm-new-chatbox"]');
