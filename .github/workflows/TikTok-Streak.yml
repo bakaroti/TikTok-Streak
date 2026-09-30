@@ -17,12 +17,26 @@ jobs:
         with:
           node-version: 20
 
+      - name: Cache Puppeteer browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/puppeteer
+          key: puppeteer-${{ hashFiles('package-lock.json') }}
+
       - run: npm install
 
       - name: Run TikTok Streak
         env:
           COOKIES_JSON: ${{ secrets.COOKIES_JSON }}
-        run: node index.js
+        run: node index.js --debug
+
+      - name: Upload debug HTML
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-html
+          path: debug-*.html
+          if-no-files-found: ignore
 
       - name: Discord Notification
         if: always()
