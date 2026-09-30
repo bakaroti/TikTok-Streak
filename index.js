@@ -21,7 +21,8 @@ const loadConfig = () => {
   }
 };
 const CONFIG = loadConfig();
-const SCAN_LIMIT = 15; // Max 15 chat saja
+const SCAN_LIMIT = 15; // Max 15 chat aja
+const SCAN_TIMEOUT = 30; // Max 30 detik per user
 
 const EDITOR_SELECTOR = [
   'div.public-DraftEditor-content[contenteditable="true"]',
@@ -221,9 +222,9 @@ const main = async () => {
           await frame.click(userSelector);
         }
         
-        // Tunggu chatbox muncul isi: polling max 15 detik
+        // Tunggu chatbox muncul isi: polling max 5 detik
         let chatReady = false;
-        for (let attempt = 0; attempt < 30; attempt++) {
+        for (let attempt = 0; attempt < 10; attempt++) {
           chatReady = await frame.evaluate(() => {
             const cb = document.querySelector('[data-e2e="dm-new-chatbox"]');
             if (!cb || cb.children.length === 0) return false;
@@ -252,7 +253,7 @@ const main = async () => {
         if (isDebug) console.log(green("  [~] Chatbox ready, editor ditemukan!"));
 
         if (SCAN_ONLY) {
-          // Ambil last message dan timestamp
+          // Ambil last message dan timestamp (WIB)
           const chatInfo = await frame.evaluate(() => {
             const cb = document.querySelector('[data-e2e="dm-new-chatbox"]');
             if (!cb) return { last_msg: "", time: "" };
@@ -264,12 +265,11 @@ const main = async () => {
             }
             // Timestamp dari element waktu
             const timeEl = cb.querySelector('[data-e2e="message-time"], [class*="time"], time');
-            const time = timeEl ? timeEl.textContent.trim() : new Date().toLocaleTimeString();
+            const time = timeEl ? timeEl.textContent.trim() : new Date().toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' });
             return { last_msg: last_msg.substring(0, 100), time };
           });
           console.log(JSON.stringify({
             user: username || `unknown_${i}`,
-            last_msg: chatInfo.last_msg,
             time: chatInfo.time
           }));
           success++;
