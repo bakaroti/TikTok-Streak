@@ -1,6 +1,6 @@
 {
-  "message": "API",
-  "useQuotesAPi": true,
+  "message": "api wei\npesan dikirim oleh da0bot",
+  "useQuotesAPi": false,
   "totalUsers": 14,
   "onlyWithStreak": false,
   "dryRun": false,

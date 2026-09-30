@@ -188,21 +188,66 @@ const main = async () => {
       return;
     }
 
-    let success = 0, failed = 0, editorFound = false;
+    let success = 0, failed = 0;
     for (let t = 0; t < targets.length; t++) {
       const i = targets[t].i;
       try {
         const userSelector = `div[data-index="${i}"] [data-e2e="dm-new-conversation-item"]`;
         await frame.waitForSelector(userSelector, { timeout: 5000 });
-        await frame.click(userSelector);
-        const username = await frame
-          .evaluate((sel) => document.querySelector(sel)?.textContent || `user${i}`,
-            `div[data-index="${i}"] [data-e2e="dm-new-conversation-nickname"]`);
-        console.log(yellow(`\n[${t + 1}/${targets.length}] -> ${username}`));
-
-        await frame.waitForSelector(EDITOR_SELECTOR, { visible: true, timeout: 15000 });
-        editorFound = true;
-        await frame.click(EDITOR_SELECTOR);
+        
+        // Klik 1: via nickname (lebih reliable daripada whole item)
+        const nicknameSelector = `div[data-index="${i}"] [data-e2e="dm-new-conversation-nickname"]`;
+        const username = await frame.evaluate((sel) => {
+          const el = document.querySelector(sel);
+          return el ? el.textContent : '';
+        }, nicknameSelector);
+        console.log(yellow(`\n[${t + 1}/${targets.length}] -> ${username || 'unknown'}`));
+        
+        // Klik nickname langsung
+        try {
+          await frame.click(nicknameSelector);
+        } catch {
+          await frame.click(userSelector);
+        }
+        
+        // Tunggu chatbox muncul isi: polling max 15 detik
+        let chatReady = false;
+        for (let attempt = 0; attempt < 30; attempt++) {
+          chatReady = await frame.evaluate(() => {
+            const cb = document.querySelector('[data-e2e="dm-new-chatbox"]');
+            if (!cb || cb.children.length === 0) return false;
+            const hasEditor = cb.querySelector('[contenteditable="true"]') ||
+                              cb.querySelector('textarea') ||
+                              cb.querySelector('[data-e2e="message-input"]') ||
+                              cb.querySelector('[role="textbox"]');
+            return !!hasEditor;
+          });
+          if (chatReady) break;
+          await sleep(500);
+        }
+        
+        if (!chatReady) {
+          // Debug: dump chatbox isi
+          const chatboxInfo = await frame.evaluate(() => {
+            const cb = document.querySelector('[data-e2e="dm-new-chatbox"]');
+            return cb ? { childCount: cb.children.length, innerHTML: cb.innerHTML.substring(0, 2000) } : { childCount: -1, innerHTML: 'chatbox not found' };
+          });
+          console.log(red(`  [x] Chatbox childCount: ${chatboxInfo.childCount}`));
+          if (isDebug) console.log(red(`  [!] chatbox HTML: ${chatboxInfo.innerHTML.substring(0, 500)}`));
+          failed++;
+          continue;
+        }
+        
+        if (isDebug) console.log(green("  [~] Chatbox ready, editor ditemukan!"));
+        
+        // Klik editor
+        await frame.evaluate(() => {
+          const cb = document.querySelector('[data-e2e="dm-new-chatbox"]');
+          const ed = cb.querySelector('[contenteditable="true"]') ||
+                     cb.querySelector('textarea') ||
+                     cb.querySelector('[role="textbox"]');
+          if (ed) ed.click();
+        });
         await sleep(CONFIG.afterClickDelayMs);
 
         let message = CONFIG.message;
@@ -223,14 +268,6 @@ const main = async () => {
       } catch (e) {
         failed++;
         console.log(red(`  [x] ${e.message.split("\n")[0]}`));
-        if (!editorFound) {
-          const dump = `debug-frame-${i}.html`;
-          try {
-            fs.writeFileSync(dump, await frame.content());
-            console.log(red(`  [!] editor tidak ketemu. HTML frame -> ${dump}`));
-          } catch {}
-          break;
-        }
       }
       if (t < targets.length - 1) await sleep(CONFIG.actionDelayMs);
     }
