@@ -96,9 +96,14 @@ const main = async () => {
 
     const iframeEl = await page.$("iframe[src*='/messages']");
     if (!iframeEl) {
+      const html = await page.content();
+      const match = html.match(/<iframe[^>]+src="([^"]*\/messages[^"]*)"/i);
       const dump = `debug-main.html`;
-      fs.writeFileSync(dump, await page.content());
-      throw new Error(`iframe messages tidak ditemukan. HTML disimpan: ${dump}`);
+      fs.writeFileSync(dump, html);
+      if (match) {
+        throw new Error(`iframe ditemukan via regex src="${match[1]}" tapi query selector tidak ketemu. HTML disimpan: ${dump}. Coba ganti selector iframe di index.js baris 97.`);
+      }
+      throw new Error(`iframe messages tidak ditemukan. HTML disimpan: ${dump}. Cek apakah TikTok memblokir halaman messages di headless mode.`);
     }
     const frame = await iframeEl.contentFrame();
     if (!frame) throw new Error("contentFrame() null");
