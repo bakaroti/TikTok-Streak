@@ -11,6 +11,8 @@
     "figlet": "^1.11.4",
     "kleur": "^4.1.5",
     "moment-timezone": "^0.6.2",
-    "puppeteer": "^25.12.0", "puppeteer-extra": "^3.3.6", "puppeteer-extra-plugin-stealth": "^2.11.2"
+    "puppeteer": "npm:rebrowser-puppeteer@^23.6.1",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
   }
 }
