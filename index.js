@@ -1,4 +1,6 @@
-const puppeteer = require("puppeteer");
+const puppeteer = require("puppeteer-extra");
+const StealthPlugin = require("puppeteer-extra-plugin-stealth");
+puppeteer.use(StealthPlugin());
 const fs = require("fs");
 const path = require("path");
 const figlet = require("figlet");
@@ -91,13 +93,19 @@ const main = async () => {
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
-        "--disable-blink-features=AutomationControlled",
-        "--window-size=1280,800"
+        "--disable-blink-features=AutomationDetected",
+        "--disable-web-security",
+        "--disable-features=AutomationControlled",
+        "--window-size=1280,800",
+        "--lang=en-US,en"
       ],
       defaultViewport: { width: 1280, height: 800 }
     });
 
     const page = await browser.newPage();
+    await page.evaluateOnNewDocument(() => {
+      Object.defineProperty(navigator, "webdriver", { get: () => undefined });
+    });
     await page.setUserAgent(
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
     );
