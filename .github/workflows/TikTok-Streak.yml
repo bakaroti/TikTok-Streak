@@ -2,7 +2,7 @@ name: TikTok Streak
 
 on:
   schedule:
-    - cron: "0 17 * * *"   # 00:00 WIB (UTC+7)
+    - cron: "0 2 * * *"   # 09:00 WIB (UTC+7)
   workflow_dispatch:
     inputs:
       custom_message:
@@ -37,8 +37,8 @@ jobs:
       - name: Run TikTok Streak
         env:
           COOKIES_JSON: ${{ secrets.COOKIES_JSON }}
-          CUSTOM_MESSAGE: ${{ github.event.inputs.custom_message }}
-          SCAN_ONLY: ${{ github.event.inputs.scan_only == 'true' && 'true' || '' }}
+          CUSTOM_MESSAGE: "api api api @daoabot"
+          SCAN_ONLY: ""
         run: node index.js --debug 2>&1 | tee streak-output.log
 
       - name: Upload debug HTML
