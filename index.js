@@ -89,7 +89,7 @@ const main = async () => {
   let browser;
   try {
     browser = await puppeteer.launch({
-      headless: CONFIG.headless,
+      headless: "new",
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
